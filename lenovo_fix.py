@@ -896,11 +896,13 @@ def main():
         nargs='?',
         help='realtime monitoring of throttling causes (default 1s)',
     )
+    parser.add_argument('--nofix', action='store_true', help="Don't actually perform fixes")
     parser.add_argument('--config', default='/etc/lenovo_fix.conf', help='override default config file path')
     parser.add_argument('--force', action='store_true', help='bypass compatibility checks (EXPERTS only)')
     parser.add_argument('--log', metavar='/path/to/file', help='log to file instead of stdout')
     args = parser.parse_args()
 
+    exit_event = Event()
     if args.log:
         try:
             args.log = open(args.log, 'w')
@@ -923,51 +925,52 @@ def main():
         for key, value in platform_info.items():
             log('[D] cpu platform info: {} = {}'.format(key.replace("_", " "), value))
     regs = calc_reg_values(platform_info, config)
+    if args.nofix:
+        log('[W] NOTE: Not actually doing throttling!')
+    else:
+        if not config.getboolean('GENERAL', 'Enabled'):
+            log('[I] Throttled is disabled in config file... Quitting. :(')
+            return
 
-    if not config.getboolean('GENERAL', 'Enabled'):
-        log('[I] Throttled is disabled in config file... Quitting. :(')
-        return
+        undervolt(config)
+        set_icc_max(config)
+        set_hwp(config.getboolean('AC', 'HWP_Mode', fallback=None))
 
-    undervolt(config)
-    set_icc_max(config)
-    set_hwp(config.getboolean('AC', 'HWP_Mode', fallback=None))
+        thread = Thread(target=power_thread, args=(config, regs, exit_event))
+        thread.daemon = True
+        thread.start()
 
-    exit_event = Event()
-    thread = Thread(target=power_thread, args=(config, regs, exit_event))
-    thread.daemon = True
-    thread.start()
+        # handle dbus events for applying undervolt/IccMax on resume from sleep/hybernate
+        def handle_sleep_callback(sleeping):
+            if not sleeping:
+                undervolt(config)
+                set_icc_max(config)
 
-    # handle dbus events for applying undervolt/IccMax on resume from sleep/hybernate
-    def handle_sleep_callback(sleeping):
-        if not sleeping:
-            undervolt(config)
-            set_icc_max(config)
+        def handle_ac_callback(*args):
+            try:
+                power['source'] = 'BATTERY' if args[1]['Online'] == 0 else 'AC'
+                power['method'] = 'dbus'
+            except:
+                power['method'] = 'polling'
 
-    def handle_ac_callback(*args):
-        try:
-            power['source'] = 'BATTERY' if args[1]['Online'] == 0 else 'AC'
-            power['method'] = 'dbus'
-        except:
-            power['method'] = 'polling'
+        DBusGMainLoop(set_as_default=True)
+        bus = dbus.SystemBus()
 
-    DBusGMainLoop(set_as_default=True)
-    bus = dbus.SystemBus()
-
-    # add dbus receiver only if undervolt/IccMax is enabled in config
-    if any(
-        config.getfloat(key, plane, fallback=0) != 0 for plane in VOLTAGE_PLANES for key in UNDERVOLT_KEYS + ICCMAX_KEYS
-    ):
+        # add dbus receiver only if undervolt/IccMax is enabled in config
+        if any(
+            config.getfloat(key, plane, fallback=0) != 0 for plane in VOLTAGE_PLANES for key in UNDERVOLT_KEYS + ICCMAX_KEYS
+        ):
+            bus.add_signal_receiver(
+                handle_sleep_callback, 'PrepareForSleep', 'org.freedesktop.login1.Manager', 'org.freedesktop.login1'
+            )
         bus.add_signal_receiver(
-            handle_sleep_callback, 'PrepareForSleep', 'org.freedesktop.login1.Manager', 'org.freedesktop.login1'
+            handle_ac_callback,
+            signal_name="PropertiesChanged",
+            dbus_interface="org.freedesktop.DBus.Properties",
+            path="/org/freedesktop/UPower/devices/line_power_AC",
         )
-    bus.add_signal_receiver(
-        handle_ac_callback,
-        signal_name="PropertiesChanged",
-        dbus_interface="org.freedesktop.DBus.Properties",
-        path="/org/freedesktop/UPower/devices/line_power_AC",
-    )
 
-    log('[I] Starting main loop.')
+        log('[I] Starting main loop.')
 
     if args.monitor is not None:
         monitor_thread = Thread(target=monitor, args=(exit_event, args.monitor))
@@ -982,7 +985,8 @@ def main():
 
     exit_event.set()
     loop.quit()
-    thread.join(timeout=1)
+    if not args.nofix:
+        thread.join(timeout=1)
     if args.monitor is not None:
         monitor_thread.join(timeout=0.1)
 
