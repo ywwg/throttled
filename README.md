@@ -5,6 +5,10 @@ The CPU package power limit (PL1/2) is forced to a value of **44 W** (29 W on ba
 
 On systems where the EC doesn't reset the values (ex: ASUS Zenbook UX430UNR), the power limit can be altered by using the official intel_rapl driver (see [Static fix](#static-fix) for more information)
 
+## Fork Notes
+
+This fork is customized for the Lenovo X1C9. It uses a sysfs method for setting the power limit instead of direct MCHBAR, which doesn't work on this machine. It also sets the power limits to 64W by default, which is what the laptop wants.
+
 ### Tested hardware
 Other users have confirmed that the tool is also working for these laptops:
 - Lenovo T470s, T480, T480s, X1C5, X1C6, X1C8, T580, L590, L490, L480, T470, X280, ThinkPad Anniversary Edition 25, E590 w/ RX 550X, P43s, E480, E580, T14 Gen 1, P14s Gen 1, T15 Gen 1
