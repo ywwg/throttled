@@ -193,8 +193,7 @@ def log(msg, oneshot=False, end='\n'):
 def fatal(msg, code=1, end='\n'):
     outfile = args.log if args.log else sys.stderr
     tstamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-    full_msg = '{:s}: [E] {:s}'.format(
-        tstamp, msg) if args.log else '[E] {:s}'.format(msg)
+    full_msg = '{:s}: [E] {:s}'.format(tstamp, msg) if args.log else '[E] {:s}'.format(msg)
     print(full_msg, file=outfile, end=end)
     sys.exit(code)
 
@@ -203,8 +202,7 @@ def warning(msg, oneshot=True, end='\n'):
     outfile = args.log if args.log else sys.stderr
     if msg.strip() not in log_history or oneshot is False:
         tstamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-        full_msg = '{:s}: [W] {:s}'.format(
-            tstamp, msg) if args.log else '[W] {:s}'.format(msg)
+        full_msg = '{:s}: [W] {:s}'.format(tstamp, msg) if args.log else '[W] {:s}'.format(msg)
         print(full_msg, file=outfile, end=end)
         log_history.add(msg.strip())
 
@@ -226,12 +224,10 @@ def writemsr(msr, val):
         if e.errno == EPERM or e.errno == EACCES:
             fatal(
                 'Unable to write to MSR {} ({:x}). Try to disable Secure Boot '
-                'and check if your kernel does not restrict access to MSR.'.format(
-                    msr, MSR_DICT[msr])
+                'and check if your kernel does not restrict access to MSR.'.format(msr, MSR_DICT[msr])
             )
         elif e.errno == EIO:
-            fatal('Unable to write to MSR {} ({:x}). Unknown error.'.format(
-                msr, MSR_DICT[msr]))
+            fatal('Unable to write to MSR {} ({:x}). Unknown error.'.format(msr, MSR_DICT[msr]))
         else:
             raise e
 
@@ -257,17 +253,14 @@ def readmsr(msr, from_bit=0, to_bit=63, cpu=None, flatten=False):
             output.append(get_value_for_bits(val, from_bit, to_bit))
         if flatten:
             if len(set(output)) > 1:
-                warning('Found multiple values for {:s} ({:x}). This should never happen.'.format(
-                    msr, MSR_DICT[msr]))
+                warning('Found multiple values for {:s} ({:x}). This should never happen.'.format(msr, MSR_DICT[msr]))
             return output[0]
         return output[cpu] if cpu is not None else output
     except (IOError, OSError) as e:
         if e.errno == EPERM or e.errno == EACCES:
-            fatal('Unable to read from MSR {} ({:x}). Try to disable Secure Boot.'.format(
-                msr, MSR_DICT[msr]))
+            fatal('Unable to read from MSR {} ({:x}). Try to disable Secure Boot.'.format(msr, MSR_DICT[msr]))
         elif e.errno == EIO:
-            fatal('Unable to read to MSR {} ({:x}). Unknown error.'.format(
-                msr, MSR_DICT[msr]))
+            fatal('Unable to read to MSR {} ({:x}). Unknown error.'.format(msr, MSR_DICT[msr]))
         else:
             raise e
 
@@ -289,8 +282,7 @@ def set_msr_allow_writes():
             with open('/sys/module/msr/parameters/allow_writes', 'w') as f:
                 f.write('on')
         except:
-            warning(
-                'Unable to set MSR allow_writes to on. You might experience warnings in kernel logs.')
+            warning('Unable to set MSR allow_writes to on. You might experience warnings in kernel logs.')
 
 
 def is_on_battery(config):
@@ -302,8 +294,7 @@ def is_on_battery(config):
     except:
         warning('No valid Sysfs_Power_Path found! Trying upower method #1')
     try:
-        out = subprocess.check_output(
-            ('upower', '-i', '/org/freedesktop/UPower/devices/line_power_AC'))
+        out = subprocess.check_output(('upower', '-i', '/org/freedesktop/UPower/devices/line_power_AC'))
         res = re.search(rb'online:\s+(yes|no)', out).group(1).decode().strip()
         if res == 'yes':
             return False
@@ -313,8 +304,7 @@ def is_on_battery(config):
     except:
         warning('Trying upower method #2')
     try:
-        out = subprocess.check_output(
-            ('upower', '-i', '/org/freedesktop/UPower/devices/battery_BAT0'))
+        out = subprocess.check_output(('upower', '-i', '/org/freedesktop/UPower/devices/battery_BAT0'))
         res = re.search(rb'state:\s+(.+)', out).group(1).decode().strip()
         if res == 'discharging':
             return True
@@ -331,8 +321,7 @@ def get_cpu_platform_info():
     features_msr_value = readmsr('MSR_PLATFORM_INFO', cpu=0)
     cpu_platform_info = {}
     for key, value in platform_info_bits.items():
-        cpu_platform_info[key] = int(get_value_for_bits(
-            features_msr_value, value[0], value[1]))
+        cpu_platform_info[key] = int(get_value_for_bits(features_msr_value, value[0], value[1]))
     return cpu_platform_info
 
 
@@ -343,8 +332,7 @@ def get_reset_thermal_status():
     for core in range(cpu_count()):
         thermal_status_core = {}
         for key, value in thermal_status_bits.items():
-            thermal_status_core[key] = int(get_value_for_bits(
-                thermal_status_msr_value[core], value[0], value[1]))
+            thermal_status_core[key] = int(get_value_for_bits(thermal_status_msr_value[core], value[0], value[1]))
         thermal_status.append(thermal_status_core)
     # reset log bits
     writemsr('IA32_THERM_STATUS', 0)
@@ -409,8 +397,7 @@ def get_undervolt(plane=None, convert=False):
     planes = [plane] if plane in VOLTAGE_PLANES else VOLTAGE_PLANES
     out = {}
     for plane in planes:
-        writemsr('MSR_OC_MAILBOX', 0x8000001000000000 |
-                 (VOLTAGE_PLANES[plane] << 40))
+        writemsr('MSR_OC_MAILBOX', 0x8000001000000000 | (VOLTAGE_PLANES[plane] << 40))
         read_value = readmsr('MSR_OC_MAILBOX', flatten=True) & 0xFFFFFFFF
         out[plane] = calc_undervolt_mv(read_value) if convert else read_value
 
@@ -457,8 +444,7 @@ def get_icc_max(plane=None, convert=False):
     planes = [plane] if plane in CURRENT_PLANES else CURRENT_PLANES
     out = {}
     for plane in planes:
-        writemsr('MSR_OC_MAILBOX', 0x8000001600000000 |
-                 (CURRENT_PLANES[plane] << 40))
+        writemsr('MSR_OC_MAILBOX', 0x8000001600000000 | (CURRENT_PLANES[plane] << 40))
         read_value = readmsr('MSR_OC_MAILBOX', flatten=True) & 0x3FF
         out[plane] = calc_icc_max_amp(read_value) if convert else read_value
 
@@ -497,15 +483,13 @@ def load_config():
         for option in ('Update_Rate_s', 'PL1_Tdp_W', 'PL1_Duration_s', 'PL2_Tdp_W', 'PL2_Duration_S'):
             value = config.getfloat(power_source, option, fallback=None)
             if value is not None:
-                value = config.set(power_source, option,
-                                   str(max(0.001, value)))
+                value = config.set(power_source, option, str(max(0.001, value)))
             elif option == 'Update_Rate_s':
                 fatal('The mandatory "Update_Rate_s" parameter is missing.')
 
         trip_temp = config.getfloat(power_source, 'Trip_Temp_C', fallback=None)
         if trip_temp is not None:
-            valid_trip_temp = min(TRIP_TEMP_RANGE[1], max(
-                TRIP_TEMP_RANGE[0], trip_temp))
+            valid_trip_temp = min(TRIP_TEMP_RANGE[1], max(TRIP_TEMP_RANGE[0], trip_temp))
             if trip_temp != valid_trip_temp:
                 config.set(power_source, 'Trip_Temp_C', str(valid_trip_temp))
                 log(
@@ -542,8 +526,7 @@ def load_config():
     for key in UNDERVOLT_KEYS:
         if key in config:
             if config.getfloat(key, 'CORE', fallback=0) != config.getfloat(key, 'CACHE', fallback=0):
-                warning(
-                    'On Skylake and newer CPUs CORE and CACHE values should match!')
+                warning('On Skylake and newer CPUs CORE and CACHE values should match!')
                 break
 
     iccmax_enabled = False
@@ -557,8 +540,7 @@ def load_config():
                         raise ValueError
                     iccmax_enabled = True
                 except ValueError:
-                    warning('Invalid value for {:s} in {:s}'.format(
-                        plane, key), oneshot=False)
+                    warning('Invalid value for {:s} in {:s}'.format(plane, key), oneshot=False)
                     config.remove_option(key, plane)
                 except configparser.NoOptionError:
                     pass
@@ -580,23 +562,19 @@ def calc_reg_values(platform_info, config):
             global TRIP_TEMP_RANGE
             TRIP_TEMP_RANGE[1] = min(TRIP_TEMP_RANGE[1], critical_temp - 3)
 
-            Trip_Temp_C = config.getfloat(
-                power_source, 'Trip_Temp_C', fallback=None)
+            Trip_Temp_C = config.getfloat(power_source, 'Trip_Temp_C', fallback=None)
             if Trip_Temp_C is not None:
                 trip_offset = int(round(critical_temp - Trip_Temp_C))
                 regs[power_source]['MSR_TEMPERATURE_TARGET'] = trip_offset << 24
             else:
-                log('[I] {:s} trip temperature is disabled in config.'.format(
-                    power_source))
+                log('[I] {:s} trip temperature is disabled in config.'.format(power_source))
 
         power_unit = get_power_unit()
 
         PL1_Tdp_W = config.getfloat(power_source, 'PL1_Tdp_W', fallback=None)
-        PL1_Duration_s = config.getfloat(
-            power_source, 'PL1_Duration_s', fallback=None)
+        PL1_Duration_s = config.getfloat(power_source, 'PL1_Duration_s', fallback=None)
         PL2_Tdp_W = config.getfloat(power_source, 'PL2_Tdp_W', fallback=None)
-        PL2_Duration_s = config.getfloat(
-            power_source, 'PL2_Duration_s', fallback=None)
+        PL2_Duration_s = config.getfloat(power_source, 'PL2_Duration_s', fallback=None)
 
         if (PL1_Tdp_W, PL1_Duration_s, PL2_Tdp_W, PL2_Duration_s).count(None) < 4:
             cur_pkg_power_limits = get_cur_pkg_power_limits()
@@ -608,8 +586,7 @@ def calc_reg_values(platform_info, config):
 
             if PL1_Duration_s is None:
                 TW1 = cur_pkg_power_limits['TW1']
-                log('[I] {:s} PL1_Duration_s disabled in config.'.format(
-                    power_source))
+                log('[I] {:s} PL1_Duration_s disabled in config.'.format(power_source))
             else:
                 Y, Z = calc_time_window_vars(PL1_Duration_s)
                 TW1 = Y | (Z << 5)
@@ -622,19 +599,16 @@ def calc_reg_values(platform_info, config):
 
             if PL2_Duration_s is None:
                 TW2 = cur_pkg_power_limits['TW2']
-                log('[I] {:s} PL2_Duration_s disabled in config.'.format(
-                    power_source))
+                log('[I] {:s} PL2_Duration_s disabled in config.'.format(power_source))
             else:
                 Y, Z = calc_time_window_vars(PL2_Duration_s)
                 TW2 = Y | (Z << 5)
 
             regs[power_source]['MSR_PKG_POWER_LIMIT'] = (
-                PL1 | (1 << 15) | (1 << 16) | (TW1 << 17) | (
-                    PL2 << 32) | (1 << 47) | (TW2 << 49)
+                PL1 | (1 << 15) | (1 << 16) | (TW1 << 17) | (PL2 << 32) | (1 << 47) | (TW2 << 49)
             )
         else:
-            log('[I] {:s} package power limits are disabled in config.'.format(
-                power_source))
+            log('[I] {:s} package power limits are disabled in config.'.format(power_source))
 
         # cTDP
         c_tdp_target_value = config.getint(power_source, 'cTDP', fallback=None)
@@ -661,8 +635,7 @@ def set_hwp(performance_mode):
     if args.debug:
         read_value = readmsr('IA32_HWP_REQUEST', from_bit=24, to_bit=31)[0]
         match = OK if hwp_mode == read_value else ERR
-        log('[D] HWP - write "{:#02x}" - read "{:#02x}" - match {}'.format(
-            hwp_mode, read_value, match))
+        log('[D] HWP - write "{:#02x}" - read "{:#02x}" - match {}'.format(hwp_mode, read_value, match))
 
 
 def set_disable_bdprochot():
@@ -674,8 +647,7 @@ def set_disable_bdprochot():
     if args.debug:
         read_value = readmsr('MSR_POWER_CTL', from_bit=0, to_bit=0)[0]
         match = OK if ~read_value else ERR
-        log('[D] BDPROCHOT - write "{:#02x}" - read "{:#02x}" - match {}'.format(
-            0, read_value, match))
+        log('[D] BDPROCHOT - write "{:#02x}" - read "{:#02x}" - match {}'.format(0, read_value, match))
 
 
 def get_config_write_time():
@@ -700,14 +672,12 @@ def power_thread(config, regs, exit_event):
         mchbar_mmio = MMIO(0xFED159A0, 8)
     except MMIOError:
         warning('Unable to open /dev/mem. TDP override might not work correctly.')
-        warning(
-            'Try to disable Secure Boot and/or enable CONFIG_DEVMEM in kernel config.')
+        warning('Try to disable Secure Boot and/or enable CONFIG_DEVMEM in kernel config.')
         mchbar_mmio = None
 
     next_hwp_write = 0
     last_config_write_time = (
-        get_config_write_time() if config.getboolean(
-            'GENERAL', 'Autoreload', fallback=False) else None
+        get_config_write_time() if config.getboolean('GENERAL', 'Autoreload', fallback=False) else None
     )
     while not exit_event.is_set():
         # log thermal status
@@ -715,8 +685,7 @@ def power_thread(config, regs, exit_event):
             thermal_status = get_reset_thermal_status()
             for index, core_thermal_status in enumerate(thermal_status):
                 for key, value in core_thermal_status.items():
-                    log('[D] core {} thermal status: {} = {}'.format(
-                        index, key.replace("_", " "), value))
+                    log('[D] core {} thermal status: {} = {}'.format(index, key.replace("_", " "), value))
 
         # Reload config on changes (unless it's deleted)
         if config.getboolean('GENERAL', 'Autoreload', fallback=False):
@@ -734,8 +703,7 @@ def power_thread(config, regs, exit_event):
             write_value = regs[power['source']]['MSR_TEMPERATURE_TARGET']
             writemsr('MSR_TEMPERATURE_TARGET', write_value)
             if args.debug:
-                read_value = readmsr(
-                    'MSR_TEMPERATURE_TARGET', 24, 29, flatten=True)
+                read_value = readmsr('MSR_TEMPERATURE_TARGET', 24, 29, flatten=True)
                 match = OK if write_value >> 24 == read_value else ERR
                 log(
                     '[D] TEMPERATURE_TARGET - write {:#x} - read {:#x} - match {}'.format(
@@ -748,8 +716,7 @@ def power_thread(config, regs, exit_event):
             write_value = regs[power['source']]['MSR_CONFIG_TDP_CONTROL']
             writemsr('MSR_CONFIG_TDP_CONTROL', write_value)
             if args.debug:
-                read_value = readmsr(
-                    'MSR_CONFIG_TDP_CONTROL', 0, 1, flatten=True)
+                read_value = readmsr('MSR_CONFIG_TDP_CONTROL', 0, 1, flatten=True)
                 match = OK if write_value == read_value else ERR
                 log(
                     '[D] CONFIG_TDP_CONTROL - write {:#x} - read {:#x} - match {}'.format(
@@ -784,8 +751,7 @@ def power_thread(config, regs, exit_event):
                     )
 
         # Disable BDPROCHOT
-        disable_bdprochot = config.getboolean(
-            power['source'], 'Disable_BDPROCHOT', fallback=None)
+        disable_bdprochot = config.getboolean(power['source'], 'Disable_BDPROCHOT', fallback=None)
         if disable_bdprochot:
             set_disable_bdprochot()
 
@@ -863,8 +829,7 @@ def check_cpu():
                 'from /proc/cpuinfo.'
             )
 
-        log('[I] Detected CPU architecture: Intel {:s}'.format(
-            supported_cpus[cpuid]))
+        log('[I] Detected CPU architecture: Intel {:s}'.format(supported_cpus[cpuid]))
     except SystemExit:
         sys.exit(1)
     except:
@@ -873,8 +838,7 @@ def check_cpu():
 
 def monitor(exit_event, wait):
     wait = max(0.1, wait)
-    rapl_power_unit = 0.5 ** readmsr('MSR_RAPL_POWER_UNIT',
-                                     from_bit=8, to_bit=12, cpu=0)
+    rapl_power_unit = 0.5 ** readmsr('MSR_RAPL_POWER_UNIT', from_bit=8, to_bit=12, cpu=0)
     power_plane_msr = {
         'Package': 'MSR_INTEL_PKG_ENERGY_STATUS',
         'Graphics': 'MSR_PP1_ENERGY_STATUS',
@@ -887,43 +851,34 @@ def monitor(exit_event, wait):
     }
 
     undervolt_values = get_undervolt(convert=True)
-    undervolt_output = ' | '.join('{:s}: {:.2f} mV'.format(
-        plane, undervolt_values[plane]) for plane in VOLTAGE_PLANES)
+    undervolt_output = ' | '.join('{:s}: {:.2f} mV'.format(plane, undervolt_values[plane]) for plane in VOLTAGE_PLANES)
     log('[D] Undervolt offsets: {:s}'.format(undervolt_output))
 
     iccmax_values = get_icc_max(convert=True)
-    iccmax_output = ' | '.join('{:s}: {:.2f} A'.format(
-        plane, iccmax_values[plane]) for plane in CURRENT_PLANES)
+    iccmax_output = ' | '.join('{:s}: {:.2f} A'.format(plane, iccmax_values[plane]) for plane in CURRENT_PLANES)
     log('[D] IccMax: {:s}'.format(iccmax_output))
 
     log('[D] Realtime monitoring of throttling causes:\n')
     while not exit_event.is_set():
         value = readmsr('IA32_THERM_STATUS', from_bit=0, to_bit=15, cpu=0)
-        offsets = {'Thermal': 0, 'Power': 10,
-                   'Current': 12, 'Cross-domain (e.g. GPU)': 14}
-        output = ('{:s}: {:s}'.format(cause, LIM if bool(
-            (value >> offsets[cause]) & 1) else OK) for cause in offsets)
+        offsets = {'Thermal': 0, 'Power': 10, 'Current': 12, 'Cross-domain (e.g. GPU)': 14}
+        output = ('{:s}: {:s}'.format(cause, LIM if bool((value >> offsets[cause]) & 1) else OK) for cause in offsets)
 
         # ugly code, just testing...
-        vcore = readmsr('IA32_PERF_STATUS', from_bit=32,
-                        to_bit=47, cpu=0) / (2.0 ** 13) * 1000
+        vcore = readmsr('IA32_PERF_STATUS', from_bit=32, to_bit=47, cpu=0) / (2.0 ** 13) * 1000
         stats2 = {'VCore': '{:.0f} mV'.format(vcore)}
         for power_plane in ('Package', 'Graphics', 'DRAM'):
-            energy_j = readmsr(
-                power_plane_msr[power_plane], cpu=0) * rapl_power_unit
+            energy_j = readmsr(power_plane_msr[power_plane], cpu=0) * rapl_power_unit
             now = time()
             prev_energy[power_plane], energy_w = (
                 (energy_j, now),
-                (energy_j - prev_energy[power_plane][0]
-                 ) / (now - prev_energy[power_plane][1]),
+                (energy_j - prev_energy[power_plane][0]) / (now - prev_energy[power_plane][1]),
             )
             stats2[power_plane] = '{:.1f} W'.format(energy_w)
-        output2 = ('{:s}: {:s}'.format(
-            label, stats2[label]) for label in stats2)
+        output2 = ('{:s}: {:s}'.format(label, stats2[label]) for label in stats2)
         terminator = '\n' if args.log else '\r'
         log(
-            '[{}] {}  ||  {}{}'.format(
-                power['source'], ' - '.join(output), ' - '.join(output2), ' ' * 10),
+            '[{}] {}  ||  {}{}'.format(power['source'], ' - '.join(output), ' - '.join(output2), ' ' * 10),
             end=terminator,
         )
         exit_event.wait(wait)
@@ -934,8 +889,7 @@ def main():
 
     parser = argparse.ArgumentParser()
     exclusive_group = parser.add_mutually_exclusive_group()
-    exclusive_group.add_argument(
-        '--debug', action='store_true', help='add some debug info and additional checks')
+    exclusive_group.add_argument('--debug', action='store_true', help='add some debug info and additional checks')
     exclusive_group.add_argument(
         '--monitor',
         metavar='update_rate',
@@ -975,8 +929,7 @@ def main():
     platform_info = get_cpu_platform_info()
     if args.debug:
         for key, value in platform_info.items():
-            log('[D] cpu platform info: {} = {}'.format(
-                key.replace("_", " "), value))
+            log('[D] cpu platform info: {} = {}'.format(key.replace("_", " "), value))
     regs = calc_reg_values(platform_info, config)
     if args.nofix:
         log('[W] NOTE: Not actually doing throttling!')
